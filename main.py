@@ -3,37 +3,35 @@ import sys
 import pypinyin
 import init
 
-org_path = 'D:/MyCode/Sensitive words recognition/test/org.txt'
-word_path = 'D:/MyCode/Sensitive words recognition/test/words.txt'
-ans_path = 'D:/MyCode/Sensitive words recognition/ans.txt'
+
+# word_path = 'D:/MyCode/Sensitive_words_recognition/031902305/test/words.txt'
+# org_path = 'D:/MyCode/Sensitive_words_recognition/031902305/test/org.txt'
+# ans_path = 'D:/MyCode/Sensitive_words_recognition/031902305/test/ans.txt'
 
 
 class DFA(object):
-
     def __init__(self, sensitive_word):
         # sensitive_word:敏感词库
         # ignore_word:无意义词库
-
         self.root = dict()
         self.ignore_word = [' ', '!', '@', '#', '$', '%', '^', '&', '*', '(', ')',
                             '[', ']', ';', ':', '"', ',', '<', '>', '.', '/', '?',
                             '{', '}', '`', '-', '_', '+', '=', '|', '\\', '\'',
                             '？', '、', '。', '，', '》', '《', '；', '：', '“', '‘',
-                            '【', '】', '！', '￥', '…', '·', '~',
+                            '【', '】', '！', '￥', '…', '·', '~', '—',
                             '1', '2', '3', '4', '5', '6', '7', '8', '9', '0']
         for word in sensitive_word.keys():
             self.add_word(word)
 
     def add_word(self, word):
         # 添加词库
-
         node = self.root
         for i in range(len(word)):
             char = word[i]
             if char in node.keys():
-                # 存在，直接赋值
+                # 存在，赋值
                 node = node.get(word[i])
-                if node['end']:
+                if node['end']:  # 已存在如falung，添加falungong的后续节点
                     new_node = dict()
                     if i == len(word) - 1:  # 最后一个
                         new_node['end'] = True
@@ -53,90 +51,99 @@ class DFA(object):
                 node[char] = new_node
                 node = new_node
 
-    def check_word(self, txt, begin_index):
-        # 检查文字中是否包含匹配的字符
-        # begin_index: 起始下标
-        # txt:待检测的文本
-        # return:存在，返回敏感词长度，不存在返回0
+    def check_pinyin(self, word, node):  # 查找字符的拼音，返回节点
+        for char in word:
+            if char not in node:
+                return False, node
+            else:
+                node = node[char]
+        return True, node
 
-        flag = False
-        node = self.root
-        tmp_length = 0  # 包括特殊字符的敏感词的长度
-        spare = 0
+    def check_word(self, txt, begin_index, end_index, node, res):
+        if node.get('end'):
+            res.append(end_index - begin_index)  # 将得到的包含特殊字符的敏感词长度返回
+        while end_index + 1 < len(txt) and txt[end_index] in self.ignore_word:  # 忽略特殊字符
+            if node == self.root:
+                return res
+            end_index += 1
+        if end_index > len(txt) - 1:
+            return res
+        word = txt[end_index]
+        if word in init.chaizi and word in node:  # 递归找当前偏旁、拼音
+            self.check_word(txt, begin_index, end_index + 1, node[word], res)
+        word = pypinyin.lazy_pinyin(word)[0].lower()
+        flag, node = self.check_pinyin(word, node)
+        if flag:
+            self.check_word(txt, begin_index, end_index + 1, node, res)
+        return res
 
-        for i in range(begin_index, len(txt)):
-            words = txt[i]
-
-            word_pinyin = pypinyin.lazy_pinyin(words)
-            spare += len(word_pinyin[0]) - 1
-
-            for word in word_pinyin[0]:
-                lword = word.lower()
-                # 检测是否是特殊字符
-                if lword in self.ignore_word and tmp_length > 0:
-                    tmp_length += 1
-                    continue
-                # 获取指定key
-                node = node.get(lword)
-                if node:  # 存在
-                    tmp_length += 1
-                    if node.get("end"):  # 判断是否为最后一个
-                        if word_pinyin[0].index(word) != len(word_pinyin[0])-1:
-                            else_word = word_pinyin[0][word_pinyin[0].index(word)+1]
-                            node1 = node.get(else_word)
-                            if node1 and (node1.get('end') == False):
-                                continue
-                        if i != len(txt) - 1:
-                            else_word = txt[i + 1]
-                            node1 = node.get(else_word)
-                            if node1 and (node1.get('end') == False):
-                                continue
-                        flag = True
-                        break
-                else:  # 不存在，返回0
-                    return 0
-            if tmp_length - spare > 0 and flag:
-                return tmp_length - spare
-        return 0
+    def find_right(self, word, index, str1, ans):  # 递归找匹配的原敏感词
+        if word in sw:
+            ans = word
+            return ans
+        if str1 in sw:
+            ans = str1
+            return ans
+        for i in range(index, len(word)):
+            if 'a' <= word[i] <= 'z':
+                str1 += word[i]
+                continue
+            else:
+                ans = self.find_right(word, i + 1, str1 + word[i], ans)
+                ans = self.find_right(word, i + 1, str1 + (pypinyin.lazy_pinyin(word[i])[0]), ans)
+                if ans != '':
+                    break
+        return ans
 
     def get_word(self, txt):
         # 获取匹配到的词语
         matched_word = list()
         right_word = list()
         for i in range(len(txt)):
-            length = self.check_word(txt, i)
-            if length > 0:
-                word = txt[i:i + length]
-                matched_word.append(word)
-                for j in word:
-                    if j in self.ignore_word:
-                        word = word.replace(j, '')
-                    if 'A' <= j <= 'Z':
-                        word = word.replace(j, j.lower())
-                str1 = "".join(pypinyin.lazy_pinyin(word))
-                right_word.append(sw[str1])
+            node = self.root
+            lengthList = self.check_word(txt, i, i, node, [])
+            if lengthList:
+                lengthList.sort()
+                length = lengthList[-1]
+                if length > 0:
+                    flag = False  # 判断无意义字符是否为数字
+                    word = txt[i:i + int(length)]
+                    matched_word.append(word)  # 获取匹配到的词
+                    for j in word:
+                        if j in self.ignore_word:
+                            word = word.replace(j, '')
+                            if '0' <= j <= '9':
+                                flag = True
+                        if 'A' <= j <= 'Z':
+                            # 去除无意义字符，大写转小写
+                            word = word.replace(j, j.lower())
+                    str1 = str()
+                    for j in word:
+                        if j in init.chaizi:
+                            str1 += j
+                        else:
+                            str1 += pypinyin.lazy_pinyin(j)[0]
+                    ans_word = self.find_right(str1, 0, '', '')
+                    right_word.append(sw[ans_word])
+                    if flag and init.is_chinese(sw[ans_word]):  # 中文加数字不算敏感词，剔除
+                        matched_word.pop()
+                        right_word.pop()
         return matched_word, right_word
 
 
 if __name__ == '__main__':
-    # word_file = open(sys.argv[1], encoding='UTF-8').readlines()
-    # sw = init.new_swd(word_file)
-    # org_file = open(sys.argv[2], encoding='UTF-8').readlines()
+
+    word_path = sys.argv[1]
+    org_path = sys.argv[2]
+    ans_path = sys.argv[3]
 
     sw = open(word_path, encoding='utf-8').readlines()
-    sw = init.new_swd(sw)
     org = open(org_path, encoding='utf-8').readlines()
+    ans_file = open(ans_path, 'w', encoding='utf-8')
 
+    sw = init.new_swd(sw)  # 返回字典 {各类变形敏感词：原敏感词}
     dfa = DFA(sensitive_word=sw)
 
-    #for i in org:
-     #   match, right = dfa.get_word(i)
-      #  print(match)
-       # print(right)
-
-    # ans_file = open(sys.argv[3], 'w', encoding='UTF-8')
-
-    ans_file = open(ans_path, 'w', encoding='utf-8')
     ans = list()
     total = 0
     for i in org:
@@ -148,7 +155,9 @@ if __name__ == '__main__':
                 ans.append('Line' + str(num + 1) + ': ' + '<' + right[ind] + '> ' + match[ind])
                 total += 1
     ans.insert(0, 'Total: ' + str(total))
+
+    # for i in ans:
+    #    print(i)
     for i in ans:
         ans_file.write(i + '\n')
-    ans_file.close() 
-
+    ans_file.close()
