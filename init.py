@@ -30,7 +30,7 @@ def AC(step, length, word, st, result):
 def new_swd(swd):
     f = open(json_path, 'r', encoding='utf-8')
     split_char = json.load(f)
-
+    f.close()
     for line in swd:
         swd[swd.index(line)] = line.strip('\n')
     sens = list()  # 三元组
@@ -66,15 +66,15 @@ def new_swd(swd):
                     tmp2.append(i)
                     tmp3.append(tmp2)
             sens.append(tmp3)
-    # print(sens)
+    #print(sens)
     sensitive_word = dict()
     for word in sens:
         result = AC(0, len(word), word, '', [])
-        # print(result)
+        #print(result)
         org_word = str()
         for j in word:
             org_word += j[0]
         for i in result:
             sensitive_word[i] = org_word  # {各类变形敏感词：原敏感词}
-    # print(sensitive_word)
+    #print(sensitive_word)
     return sensitive_word

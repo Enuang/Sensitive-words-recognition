@@ -13,6 +13,7 @@ class DFA(object):
     def __init__(self, sensitive_word):
         # sensitive_word:敏感词库
         # ignore_word:无意义词库
+        self.swd = sensitive_word
         self.root = dict()
         self.ignore_word = [' ', '!', '@', '#', '$', '%', '^', '&', '*', '(', ')',
                             '[', ']', ';', ':', '"', ',', '<', '>', '.', '/', '?',
@@ -42,12 +43,10 @@ class DFA(object):
             else:
                 # 不存在，构建dict
                 new_node = dict()
-
                 if i == len(word) - 1:  # 最后一个
                     new_node['end'] = True
                 else:  # 不是最后一个
                     new_node['end'] = False
-
                 node[char] = new_node
                 node = new_node
 
@@ -78,10 +77,10 @@ class DFA(object):
         return res
 
     def find_right(self, word, index, str1, ans):  # 递归找匹配的原敏感词
-        if word in sw:
+        if word in self.swd:
             ans = word
             return ans
-        if str1 in sw:
+        if str1 in self.swd:
             ans = str1
             return ans
         for i in range(index, len(word)):
@@ -124,8 +123,8 @@ class DFA(object):
                         else:
                             str1 += pypinyin.lazy_pinyin(j)[0]
                     ans_word = self.find_right(str1, 0, '', '')
-                    right_word.append(sw[ans_word])
-                    if flag and init.is_chinese(sw[ans_word]):  # 中文加数字不算敏感词，剔除
+                    right_word.append(self.swd[ans_word])
+                    if flag and init.is_chinese(self.swd[ans_word]):  # 中文加数字不算敏感词，剔除
                         matched_word.pop()
                         right_word.pop()
         return matched_word, right_word
@@ -136,10 +135,12 @@ if __name__ == '__main__':
     word_path = sys.argv[1]
     org_path = sys.argv[2]
     ans_path = sys.argv[3]
-
-    sw = open(word_path, encoding='utf-8').readlines()
-    org = open(org_path, encoding='utf-8').readlines()
+    word_file = open(word_path, encoding='utf-8')
+    org_file = open(org_path, encoding='utf-8')
     ans_file = open(ans_path, 'w', encoding='utf-8')
+
+    sw = word_file.readlines()
+    org = org_file.readlines()
 
     sw = init.new_swd(sw)  # 返回字典 {各类变形敏感词：原敏感词}
     dfa = DFA(sensitive_word=sw)
@@ -155,9 +156,10 @@ if __name__ == '__main__':
                 ans.append('Line' + str(num + 1) + ': ' + '<' + right[ind] + '> ' + match[ind])
                 total += 1
     ans.insert(0, 'Total: ' + str(total))
-
     # for i in ans:
-    #    print(i)
+    #   print(i)
     for i in ans:
         ans_file.write(i + '\n')
+    word_file.close()
+    org_file.close()
     ans_file.close()
