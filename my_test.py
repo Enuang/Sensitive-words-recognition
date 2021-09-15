@@ -28,6 +28,14 @@ class MyTestCase(unittest.TestCase):
                     ind = match.index(j)
                     result.append('Line' + str(num + 1) + ': ' + '<' + right[ind] + '> ' + match[ind])
         self.assertEqual(result, ans)
+    def test_IOError(self):
+        try:
+            f=open('requirement.txt','r',encoding='utf-8')
+        except IOError:
+            print('IOError:未找到文件或读取文件失败')
+        else:
+            print("文件读取成功")
+            f.close()
 
 if __name__ == '__main__':
     unittest.main()
